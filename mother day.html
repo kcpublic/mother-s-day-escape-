@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Escape Room WebGL</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; }
+    #instructions {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      text-align: center;
+      font-size: 24px;
+      color: white;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div id="instructions">Click to Start</div>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.1/examples/js/controls/PointerLockControls.js"></script>
+  <script>
+    let camera, scene, renderer, controls;
+    let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+    let velocity = new THREE.Vector3();
+    let clock = new THREE.Clock();
+    let drawer, key, keyCollected = false, drawerOpened = false;
+
+    const instructions = document.getElementById('instructions');
+
+    init();
+    animate();
+
+    function init() {
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 1000);
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x202020);
+
+      // Lighting
+      const light = new THREE.PointLight(0xffffff, 1);
+      light.position.set(0, 10, 0);
+      scene.add(light);
+
+      // Floor
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(50, 50), new THREE.MeshStandardMaterial({ color: 0x404040 }));
+      floor.rotation.x = -Math.PI / 2;
+      scene.add(floor);
+
+      // Walls
+      const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x888888 });
+      const wallGeo = new THREE.BoxGeometry(50, 10, 1);
+      const backWall = new THREE.Mesh(wallGeo, wallMaterial);
+      backWall.position.z = -25;
+      backWall.position.y = 5;
+      scene.add(backWall);
+
+      // Drawer (with a key inside)
+      drawer = new THREE.Mesh(new THREE.BoxGeometry(6, 2, 3), new THREE.MeshStandardMaterial({ color: 0x8B4513 }));
+      drawer.position.set(0, 1, -10);
+      scene.add(drawer);
+
+      // Key inside the drawer (initially hidden)
+      key = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.5), new THREE.MeshStandardMaterial({ color: 0xffff00 }));
+      key.position.set(0, 0.5, -10); // Inside the drawer
+      scene.add(key);
+      key.visible = false; // Make the key invisible initially
+
+      // Door (initially locked)
+      const door = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 0.5), new THREE.MeshStandardMaterial({ color: 0x00ff00 }));
+      door.position.set(0, 2, -24.5);
+      scene.add(door);
+
+      // Renderer
+      renderer = new THREE.WebGLRenderer();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      // Controls
+      controls = new THREE.PointerLockControls(camera, document.body);
+      instructions.addEventListener('click', () => {
+        controls.lock();
+      });
+
+      controls.addEventListener('lock', () => {
+        instructions.style.display = 'none';
+      });
+
+      controls.addEventListener('unlock', () => {
+        instructions.style.display = '';
+      });
+
+      scene.add(controls.getObject());
+
+      // Keyboard movement
+      const onKeyDown = (e) => {
+        switch (e.code) {
+          case 'KeyW': moveForward = true; break;
+          case 'KeyS': moveBackward = true; break;
+          case 'KeyA': moveLeft = true; break;
+          case 'KeyD': moveRight = true; break;
+          case 'KeyE': interactWithDrawer(); break;  // Interact with drawer (E key)
+        }
+      };
+
+      const onKeyUp = (e) => {
+        switch (e.code) {
+          case 'KeyW': moveForward = false; break;
+          case 'KeyS': moveBackward = false; break;
+          case 'KeyA': moveLeft = false; break;
+          case 'KeyD': moveRight = false; break;
+        }
+      };
+
+      document.addEventListener('keydown', onKeyDown);
+      document.addEventListener('keyup', onKeyUp);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const delta = clock.getDelta();
+      velocity.set(0, 0, 0);
+
+      if (moveForward) velocity.z -= 5 * delta;
+      if (moveBackward) velocity.z += 5 * delta;
+      if (moveLeft) velocity.x -= 5 * delta;
+      if (moveRight) velocity.x += 5 * delta;
+
+      controls.moveRight(velocity.x);
+      controls.moveForward(velocity.z);
+
+      // Drawer interaction
+      if (keyCollected && camera.position.distanceTo(drawer.position) < 3) {
+        instructions.innerText = 'Press E to open the drawer and get the key';
+        instructions.style.display = '';
+      } else if (camera.position.distanceTo(drawer.position) < 3) {
+        instructions.innerText = 'Press E to open the drawer';
+        instructions.style.display = '';
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // Handle drawer interaction
+    function interactWithDrawer() {
+      if (camera.position.distanceTo(drawer.position) < 3 && !keyCollected) {
+        key.visible = true; // Make key visible
+        keyCollected = true;
+        instructions.innerText = 'You got the key!';
+        instructions.style.display = '';
+      }
+    }
+  </script>
+</body>
+</html>
